@@ -1,0 +1,10 @@
+component_task:
+  description: >
+    Analyze the provided information about a precision engineering component, 
+    including functional requirements, dimensions, tolerances, and industry norms. 
+    Based on your expertise, recommend the best materials and machines to manufacture 
+    the component with high accuracy and reliability.
+  expected_output: >
+    Provide a list of three recommended machines and three suitable materials for 
+    producing the component, along with a brief rationale for each choice.
+  agent: precision_agent
