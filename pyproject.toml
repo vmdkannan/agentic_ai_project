@@ -6,6 +6,8 @@ authors = [{ name = "veeramanicadas", email = "veeramanicadas.kannan@gmail.com" 
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "crewai[google-genai,tools]==1.9.3",
+    "fastapi>=0.129.2",
+    "uvicorn>=0.18.3"
 ]
 
 [project.scripts]
@@ -22,3 +24,7 @@ build-backend = "hatchling.build"
 
 [tool.crewai]
 type = "crew"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agent_crewai"]
+source = "src"

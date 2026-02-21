@@ -15,9 +15,11 @@ pip install uv
 Next, navigate to your project directory and install the dependencies:
 
 (Optional) Lock the dependencies and install them by using the CLI command:
+
 ```bash
 crewai install
 ```
+
 ### Customizing
 
 **Add your `OPENAI_API_KEY` into the `.env` file**
@@ -46,9 +48,27 @@ The agent_crewai Crew is composed of multiple AI agents, each with unique roles,
 ## Support
 
 For support, questions, or feedback regarding the AgentCrewai Crew or crewAI.
+
 - Visit our [documentation](https://docs.crewai.com)
 - Reach out to us through our [GitHub repository](https://github.com/joaomdmoura/crewai)
 - [Join our Discord](https://discord.com/invite/X4JWnZnxPb)
 - [Chat with our docs](https://chatg.pt/DWjSBZn)
 
 Let's create wonders together with the power and simplicity of crewAI.
+
+Docker Commands :
+
+$ docker build -t agent_crewai .
+
+$ docker run --name agent_crewai_app -p 8078:8078 --env-file .env agent_crewai
+
+$ curl -X POST http://localhost:8078/analyze \
+ -H "Content-Type: application/json" \
+ -d '{
+"component_name": "Turbine Blade",
+"dimensions": "500mm x 120mm",
+"tolerances": "+/- 0.01mm",
+"material_requirements": "Inconel 718",
+"norms": "ISO 9001, AS9100",
+"topic": "Aerospace Manufacturing"
+}'

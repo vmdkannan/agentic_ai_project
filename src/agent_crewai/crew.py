@@ -5,7 +5,6 @@ from google import genai
 
 @CrewBase
 class CrewAiDev():
-    """LatestAiDevelopment crew"""
 
     # 1. Define the LLM inside the class so it's accessible to your methods
     # Using Gemini 3 Flash (recommended for 2026) for speed/cost
@@ -31,7 +30,6 @@ class CrewAiDev():
 
     @crew
     def crew(self) -> Crew:
-        """Creates the LatestAiDevelopment crew"""
         return Crew(
             agents=self.agents, 
 
