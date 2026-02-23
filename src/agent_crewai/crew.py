@@ -1,39 +1,78 @@
 from crewai import Agent, Crew, Process, Task, LLM
 from crewai.project import CrewBase, agent, crew, task
-from typing import List
-from google import genai
+from databricks import sql
+from typing import Optional
+import os
+
 
 @CrewBase
 class CrewAiDev():
 
-    # 1. Define the LLM inside the class so it's accessible to your methods
-    # Using Gemini 3 Flash (recommended for 2026) for speed/cost
-    llm = LLM(
-        model="gemini/gemini-2.5-flash", 
-        temperature=0.7
-    )
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        http_path: Optional[str] = None,
+        token: Optional[str] = None,
+    ):
+        self.host = host or os.getenv("DATABRICKS_HOST")
+        self.http_path = http_path or os.getenv("DATABRICKS_HTTP_PATH")
+        self.token = token or os.getenv("DATABRICKS_TOKEN")
+
+        self.llm = LLM(
+            model="gemini/gemini-2.5-flash",
+            temperature=0.3
+        )
+
+    def query_materials(self, temperature: float, aerospace_required: bool):
+
+        query = """
+        SELECT
+            material_name,
+            material_type,
+            grade,
+            machinability_rating,
+            tensile_strength_mpa,
+            yield_strength_mpa,
+            max_operating_temp_c,
+            aerospace_grade,
+            cost_per_kg
+        FROM dbt_industry_dev.source.materials
+        WHERE max_operating_temp_c >= ?
+        AND aerospace_grade = ?
+        ORDER BY max_operating_temp_c ASC, cost_per_kg ASC
+        LIMIT 5
+        """
+
+        with sql.connect(
+            server_hostname=self.host,
+            http_path=self.http_path,
+            access_token=self.token,
+        ) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(query, (temperature, aerospace_required))
+                result = cursor.fetchall()
+
+        return result
 
     @agent
-    def precision_agent(self) -> Agent:
+    def material_expert(self) -> Agent:
         return Agent(
-            config=self.agents_config['precision_agent'],
-            llm=self.llm, 
+            config=self.agents_config['material_expert'],
+            llm=self.llm,
             verbose=True
         )
 
     @task
-    def reporting_task(self) -> Task:
+    def material_selection_task(self) -> Task:
         return Task(
-            config=self.tasks_config['component_task'],
-            output_file='report.md'
+            config=self.tasks_config['material_selection_task']
         )
 
     @crew
     def crew(self) -> Crew:
         return Crew(
-            agents=self.agents, 
-
-            tasks=self.tasks, 
+            agents=self.agents,
+            tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
         )

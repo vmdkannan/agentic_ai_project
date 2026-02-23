@@ -58,8 +58,6 @@ Let's create wonders together with the power and simplicity of crewAI.
 
 Docker Commands :
 
-$ docker build -t agent_crewai .
-
 $ docker run --name agent_crewai_app -p 8078:8078 --env-file .env agent_crewai
 
 $ curl -X POST http://localhost:8078/analyze \
@@ -69,6 +67,10 @@ $ curl -X POST http://localhost:8078/analyze \
 "dimensions": "500mm x 120mm",
 "tolerances": "+/- 0.01mm",
 "material_requirements": "Inconel 718",
-"norms": "ISO 9001, AS9100",
+"norms": "ISO 9001, AS9100",  
 "topic": "Aerospace Manufacturing"
 }'
+
+## Database Entity Relationship :
+
+**Refer to project_detail.md**

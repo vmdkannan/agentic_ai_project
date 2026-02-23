@@ -1,10 +1,53 @@
-component_task:
+# component_task:
+#   description: >
+#     Analyze the provided information about a precision engineering component,
+#     including functional requirements, dimensions, tolerances, and industry norms.
+#     Based on your expertise, recommend the best materials and machines to manufacture
+#     the component with high accuracy and reliability.
+#   expected_output: >
+#     Provide a list of three recommended machines and three suitable materials for
+#     producing the component, along with a brief rationale for each choice.
+#   agent: precision_agent
+
+material_selection_task:
   description: >
-    Analyze the provided information about a precision engineering component, 
-    including functional requirements, dimensions, tolerances, and industry norms. 
-    Based on your expertise, recommend the best materials and machines to manufacture 
-    the component with high accuracy and reliability.
+    A component requires operation at {crewai_trigger_payload[temperature]}°C
+    with tolerance of {crewai_trigger_payload[tolerance]}.
+    Industry: {topic}
+
+    Below are the candidate materials retrieved from the database:
+
+    {candidate_materials}
+
+    IMPORTANT:
+    - Only use the materials listed above.
+    - Do NOT introduce new materials.
+    - Base your reasoning strictly on the provided data fields.
+
+    Your task:
+    1. Select the best 2 materials.
+    2. Justify selection based on:
+       - Maximum operating temperature
+       - Machinability rating
+       - Strength properties (tensile/yield)
+       - Cost consideration
+       - Aerospace suitability (if applicable)
+
+    Provide engineering reasoning, not generic explanation.
+
   expected_output: >
-    Provide a list of three recommended machines and three suitable materials for 
-    producing the component, along with a brief rationale for each choice.
-  agent: precision_agent
+    Return JSON format:
+
+    {
+      "recommended_materials": [
+        {
+          "material_name": "",
+          "reason": "",
+          "advantages": "",
+          "tradeoffs": ""
+        }
+      ],
+      "comparison_summary": ""
+    }
+
+  agent: material_expert
