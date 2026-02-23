@@ -1,53 +1,141 @@
-# component_task:
-#   description: >
-#     Analyze the provided information about a precision engineering component,
-#     including functional requirements, dimensions, tolerances, and industry norms.
-#     Based on your expertise, recommend the best materials and machines to manufacture
-#     the component with high accuracy and reliability.
-#   expected_output: >
-#     Provide a list of three recommended machines and three suitable materials for
-#     producing the component, along with a brief rationale for each choice.
-#   agent: precision_agent
-
 material_selection_task:
   description: >
-    A component requires operation at {crewai_trigger_payload[temperature]}°C
-    with tolerance of {crewai_trigger_payload[tolerance]}.
+    A component requires operation at {temperature}°C with a machining tolerance of {tolerance} mm.
     Industry: {topic}
+    Aerospace grade required: {aerospace_required}
 
-    Below are the candidate materials retrieved from the database:
+    Use the `query_materials` tool with:
+      - temperature = {temperature}
+      - aerospace_required = {aerospace_required}
 
-    {candidate_materials}
+    The tool returns materials with two key identifier fields:
+      - material_name: the specific alloy (e.g. 'Waspaloy', 'Inconel 718')
+      - material_type: the category   (e.g. 'Superalloy', 'Titanium', 'Steel')
+      - machinability_rating: a STRING label — 'Easy', 'Moderate', 'Difficult', or 'Very Difficult'
+
+    Machinability interpretation for reasoning:
+      Easy          = fast cutting, low tool wear, low machining cost
+      Moderate      = standard CNC acceptable, moderate tool wear
+      Difficult     = requires specialist CNC, high tool wear, higher cost
+      Very Difficult = requires EDM / grinding / ultrasonic, very high cost
 
     IMPORTANT:
-    - Only use the materials listed above.
-    - Do NOT introduce new materials.
-    - Base your reasoning strictly on the provided data fields.
+    - Only use materials returned by the tool.
+    - Do NOT introduce materials not present in the database results.
+    - Base your reasoning strictly on the returned data fields.
 
     Your task:
-    1. Select the best 2 materials.
+    1. Select the best 2 materials from the results.
     2. Justify selection based on:
-       - Maximum operating temperature
-       - Machinability rating
-       - Strength properties (tensile/yield)
-       - Cost consideration
-       - Aerospace suitability (if applicable)
+       - Maximum operating temperature and margin above {temperature}°C
+       - Machinability rating label and its machining cost implications
+       - Strength properties (tensile_strength_mpa / yield_strength_mpa)
+       - Cost per kg
+       - Aerospace suitability
+    3. From your top 2, identify a single primary recommendation.
 
     Provide engineering reasoning, not generic explanation.
 
   expected_output: >
-    Return JSON format:
-
+    Return only valid JSON in this exact format, with no markdown fencing:
     {
       "recommended_materials": [
         {
           "material_name": "",
+          "material_type": "",
+          "grade": "",
+          "machinability_rating": "",
+          "tensile_strength_mpa": 0,
+          "yield_strength_mpa": 0,
+          "max_operating_temp_c": 0,
+          "cost_per_kg": 0,
           "reason": "",
           "advantages": "",
           "tradeoffs": ""
         }
       ],
+      "primary_material_name": "",
+      "primary_material_type": "",
+      "primary_machinability_rating": "",
       "comparison_summary": ""
     }
 
   agent: material_expert
+
+machine_planning_task:
+  description: >
+    The materials expert has completed their analysis. Read their output from the context
+    provided to you and extract these three fields:
+      - primary_material_name  (e.g. 'Waspaloy')   — for display/reporting only
+      - primary_material_type  (e.g. 'Superalloy')  — pass this to query_machines
+      - primary_machinability_rating (e.g. 'Difficult') — use for machining strategy reasoning
+
+    CRITICAL: The `query_machines` tool matches against supported_material_type in the database,
+    which stores category values like 'Superalloy', 'Titanium', 'Steel'.
+    You MUST pass primary_material_type (e.g. 'Superalloy') as the material_type argument.
+    DO NOT pass the specific alloy name (e.g. do NOT pass 'Waspaloy') — it will return no results.
+
+    Component requirements:
+    - Tolerance: {tolerance} mm
+    - Geometry complexity: {geometry_complexity}
+    - Surface finish requirement: {surface_finish}
+    - Special features: {special_features}
+
+    Use the `query_machines` tool with:
+      - material_type    = <primary_material_type from context, e.g. 'Superalloy'>
+      - required_tolerance = {tolerance}
+      - required_geometry  = {geometry_complexity}
+      - required_surface_finish = {surface_finish}
+      - required_features = {special_features}
+
+    If the tool returns no results, retry once with required_geometry and required_surface_finish
+    set to null to broaden the search, then note the relaxed constraints in your output.
+
+    IMPORTANT:
+    - Only recommend machines returned by the tool.
+    - Do NOT introduce machines not present in the database results.
+    - Base decisions strictly on the returned fields:
+        supported_material_type, max_tolerance_mm, cost_per_hour, machine_type,
+        geometry_capability, surface_finish_capability, special_features
+
+    Your task:
+    1. Select the best machine or machine sequence from the results.
+    2. Justify based on:
+       - Ability to achieve required tolerance of {tolerance} mm
+       - Suitability for a material with machinability rating of primary_machinability_rating
+       - Geometry complexity handling
+       - Surface finish capability
+       - Manufacturing efficiency and cost per hour
+    3. Estimate machining time category:
+       - LOW       (< 2 hrs)
+       - MEDIUM    (2-8 hrs)
+       - HIGH      (8-24 hrs)
+       - VERY_HIGH (> 24 hrs)
+    4. Identify manufacturing risks and mitigations specific to the selected material and machines.
+
+    Provide detailed engineering reasoning.
+
+  expected_output: >
+    Return only valid JSON in this exact format, with no markdown fencing:
+    {
+      "selected_material_name": "",
+      "selected_material_type": "",
+      "recommended_machines": [
+        {
+          "machine_name": "",
+          "machine_type": "",
+          "reason": "",
+          "operations": [],
+          "tolerance_capability": "",
+          "material_compatibility": "",
+          "cost_per_hour": 0
+        }
+      ],
+      "machining_strategy": "",
+      "estimated_machining_time_category": "",
+      "manufacturing_risk": "",
+      "risk_mitigations": "",
+      "planning_summary": ""
+    }
+
+  agent: machine_planner
