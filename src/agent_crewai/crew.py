@@ -184,10 +184,9 @@ class MachineQueryTool(BaseTool):
                 columns = [col[0] for col in cursor.description]
                 machines = [dict(zip(columns, row)) for row in rows]
 
-        # ── In-memory optional filters ───────────────────────────────────────
-        # geometry_capability and special_features are ARRAY<STRING> in Databricks
-        # so the connector returns them as Python lists. Handle both list and
-        # fallback string gracefully.
+        # In-memory optional filters
+        # geometry_capability and special_features are ARRAY<STRING> in Databricks.
+        # The connector returns them as Python lists. Handle both list and string gracefully.
 
         def as_list(value) -> list:
             if isinstance(value, list):
@@ -196,16 +195,46 @@ class MachineQueryTool(BaseTool):
                 return [v.strip() for v in value.split(",")]
             return []
 
+        # Geometry: "complex" is a user-facing complexity LEVEL, not a DB geometry TYPE.
+        # DB stores capability types: "prismatic", "freeform", "deep_bore", etc.
+        # A machine qualifies if it supports ANY of the mapped capability types.
+        GEOMETRY_COMPLEXITY_MAP = {
+            "simple":   ["prismatic"],
+            "moderate": ["prismatic", "freeform"],
+            "complex":  ["freeform", "deep_bore", "complex"],
+        }
+
         if required_geometry:
-            machines = [
-                m for m in machines
-                if required_geometry in as_list(m.get("geometry_capability"))
-            ]
+            complexity_key = required_geometry.lower()
+            if complexity_key in GEOMETRY_COMPLEXITY_MAP:
+                required_caps = GEOMETRY_COMPLEXITY_MAP[complexity_key]
+                machines = [
+                    m for m in machines
+                    if any(cap in as_list(m.get("geometry_capability")) for cap in required_caps)
+                ]
+            else:
+                # Exact match fallback for non-standard geometry values
+                machines = [
+                    m for m in machines
+                    if required_geometry in as_list(m.get("geometry_capability"))
+                ]
+
+        # Surface finish hierarchy: mirror >= very high >= high >= standard
+        # A machine rated "mirror" also satisfies "high" or "standard" requests.
+        SURFACE_FINISH_RANK = {
+            "standard":  1,
+            "high":      2,
+            "very high": 3,
+            "mirror":    4,
+        }
 
         if required_surface_finish:
+            required_rank = SURFACE_FINISH_RANK.get(required_surface_finish.lower(), 1)
             machines = [
                 m for m in machines
-                if m.get("surface_finish_capability") == required_surface_finish
+                if SURFACE_FINISH_RANK.get(
+                    (m.get("surface_finish_capability") or "").lower(), 0
+                ) >= required_rank
             ]
 
         if required_features:

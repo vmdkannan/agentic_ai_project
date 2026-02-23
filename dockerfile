@@ -16,8 +16,11 @@ ENV PYTHONPATH=/app/src
 # 4. Install the local package (this fixes the 'ModuleNotFoundError')
 RUN pip install -e .
 
-EXPOSE 8078
+RUN useradd -m -u 1000 user
+USER user
+
+EXPOSE 7860
 
 # 5. Start Uvicorn pointing to your api file
 # If your file is src/agent_crewai/api.py, use this:
-CMD ["uvicorn", "agent_crewai.api:app", "--host", "0.0.0.0", "--port", "8078"]
+CMD ["uvicorn", "agent_crewai.api:app", "--host", "0.0.0.0", "--port", "7860"]
