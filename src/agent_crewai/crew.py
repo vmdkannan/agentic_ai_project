@@ -3,6 +3,8 @@ from crewai.project import CrewBase, agent, crew, task
 from databricks import sql
 from typing import Optional
 import os
+from decimal import Decimal
+
 
 
 @CrewBase
@@ -22,6 +24,21 @@ class CrewAiDev():
             model="gemini/gemini-2.5-flash",
             temperature=0.3
         )
+        
+    
+
+    def sanitize_for_crewai(self, data):
+        if isinstance(data, list):
+            return [self.sanitize_for_crewai(item) for item in data]
+
+        if isinstance(data, dict):
+            return {k: self.sanitize_for_crewai(v) for k, v in data.items()}
+
+        if isinstance(data, Decimal):
+            return float(data)
+
+        return data
+        
 
     def query_materials(self, temperature: float, aerospace_required: bool):
 
@@ -37,9 +54,9 @@ class CrewAiDev():
             aerospace_grade,
             cost_per_kg
         FROM dbt_industry_dev.source.materials
-        WHERE max_operating_temp_c >= ?
-        AND aerospace_grade = ?
-        ORDER BY max_operating_temp_c ASC, cost_per_kg ASC
+        WHERE max_operating_temp_c >= :temperature
+        AND aerospace_grade = :aerospace_required
+        ORDER BY max_operating_temp_c DESC, cost_per_kg ASC
         LIMIT 5
         """
 
@@ -49,10 +66,28 @@ class CrewAiDev():
             access_token=self.token,
         ) as connection:
             with connection.cursor() as cursor:
-                cursor.execute(query, (temperature, aerospace_required))
+                cursor.execute(
+                    query,
+                    {
+                        "temperature": float(temperature),
+                        "aerospace_required": bool(aerospace_required),
+                    },
+                )
                 result = cursor.fetchall()
 
-        return result
+        columns = [
+            "material_name",
+            "material_type",
+            "grade",
+            "machinability_rating",
+            "tensile_strength_mpa",
+            "yield_strength_mpa",
+            "max_operating_temp_c",
+            "aerospace_grade",
+            "cost_per_kg",
+        ]
+
+        return [dict(zip(columns, row)) for row in result]
 
     @agent
     def material_expert(self) -> Agent:

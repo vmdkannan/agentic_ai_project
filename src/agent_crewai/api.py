@@ -27,11 +27,13 @@ def analyze_component(request: ComponentRequest):
         temperature=request.temperature,
         aerospace_required=True
     )
+    
+    materials = crew_instance.sanitize_for_crewai(materials)
 
     inputs = {
         "crewai_trigger_payload": request.dict(),
         "topic": request.topic,
-        "candidate_materials": str(materials),
+        "candidate_materials": materials,
         "current_year": str(datetime.now().year)
     }
 
