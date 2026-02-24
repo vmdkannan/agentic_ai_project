@@ -125,7 +125,7 @@ class MaterialQueryTool(BaseTool):
 class MachineQueryTool(BaseTool):
     name: str = "query_machines"
     description: str = (
-        "Query the Databricks machines database. Returns available machines compatible "
+        "Query the Databricks machines table. Returns available machines compatible "
         "with the given material_type category and tolerance. "
         "Pass material_type (e.g. 'Superalloy') — NOT the specific alloy name (e.g. not 'Waspaloy'). "
         "Optionally filters by geometry complexity, surface finish capability, and special features. "
@@ -305,7 +305,13 @@ class CrewAiDev:
         return Agent(
             config=self.agents_config["machine_planner"],
             llm=self.llm,
-            tools=[self._machine_tool],
+            tools=[
+                MachineQueryTool(
+                    host=self.host,
+                    http_path=self.http_path,
+                    token=self.token,
+                )
+            ],
             verbose=True,
         )
 
