@@ -2,6 +2,7 @@
 crewai==1.9.3
 crewai-tools==1.9.3
 google-generativeai
+litellm==1.72.6
 
 # API and Server
 fastapi==0.129.2

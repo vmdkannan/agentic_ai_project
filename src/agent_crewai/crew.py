@@ -154,18 +154,24 @@ class MachineQueryTool(BaseTool):
         required_surface_finish: Optional[str] = None,
         required_features: Optional[List[str]] = None,
     ) -> str:
-        # Match on material_type category (e.g. 'Superalloy'), which is what
-        # supported_material_type stores. Multi-material machines store comma-separated
-        # values (e.g. 'Superalloy, Titanium, Steel') so we split and trim before matching.
         query = """
-        SELECT *
+        SELECT
+            machine_name,
+            machine_type,
+            supported_material_type,
+            max_tolerance_mm,
+            geometry_capability,
+            surface_finish_capability,
+            special_features,
+            cost_per_hour
         FROM dbt_industry_dev.source.machines
         WHERE array_contains(
-                  transform(split(supported_material_type, ','), x -> trim(x)),
-                  :material_type
-              )
-          AND max_tolerance_mm <= :required_tolerance
-          AND status = 'available'
+                transform(split(supported_material_type, ','), x -> trim(x)),
+                :material_type
+            )
+        AND max_tolerance_mm <= :required_tolerance
+        AND status = 'available'
+        LIMIT 5
         """
         with sql.connect(
             server_hostname=self.host,
@@ -280,7 +286,21 @@ class CrewAiDev:
         self.http_path = http_path or os.getenv("DATABRICKS_HTTP_PATH")
         self.token = token or os.getenv("DATABRICKS_TOKEN")
 
-        self.llm = LLM(model="gemini/gemini-2.5-flash", temperature=0.3)
+        # self.llm = LLM(model="gemini/gemini-2.5-flash", temperature=0.3)
+  
+        # self.llm = LLM(
+        #     model="deepseek/deepseek-chat",
+        #     temperature=0.3,
+        #     api_key=os.getenv("DEEPSEEK_API_KEY")
+        # )
+        
+        self.llm = LLM(
+            model="llama-3.3-70b-versatile",
+            temperature=0.3,
+            api_key=os.getenv("GROQ_API_KEY"),
+            base_url="https://api.groq.com/openai/v1"
+        )
+        
 
         self._material_tool = MaterialQueryTool(
             host=self.host, http_path=self.http_path, token=self.token
