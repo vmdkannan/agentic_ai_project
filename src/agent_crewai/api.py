@@ -85,8 +85,7 @@ def analyze_component(request: ComponentRequest):
     crew_instance = CrewAiDev(
         host=os.getenv("DATABRICKS_HOST"),
         http_path=os.getenv("DATABRICKS_HTTP_PATH"),
-        token=os.getenv("DATABRICKS_TOKEN"),
-        client_kwargs={"timeout": 600}
+        token=os.getenv("DATABRICKS_TOKEN")
     )
 
     inputs = {
