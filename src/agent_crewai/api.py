@@ -86,6 +86,7 @@ def analyze_component(request: ComponentRequest):
         host=os.getenv("DATABRICKS_HOST"),
         http_path=os.getenv("DATABRICKS_HTTP_PATH"),
         token=os.getenv("DATABRICKS_TOKEN"),
+        client_kwargs={"timeout": 600}
     )
 
     inputs = {
@@ -106,9 +107,16 @@ def analyze_component(request: ComponentRequest):
 
     # crew_result.tasks_output is a list ordered by task execution
     tasks_output = getattr(crew_result, "tasks_output", [])
+    print(f"Total tasks: {len(tasks_output)}")
+    for i, task in enumerate(tasks_output):
+        print(f"\n=== Task {i} ===")
+        print(f"Type: {type(task)}")
+        print(f"Raw: {repr(task.raw)}")
 
     material_raw = tasks_output[0].raw if len(tasks_output) > 0 else ""
     machine_raw  = tasks_output[1].raw if len(tasks_output) > 1 else crew_result.raw
+    
+    
 
     material_data = parse_agent_json(material_raw)
     machine_data  = parse_agent_json(machine_raw)
