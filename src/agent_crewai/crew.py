@@ -154,109 +154,67 @@ class MachineQueryTool(BaseTool):
         required_surface_finish: Optional[str] = None,
         required_features: Optional[List[str]] = None,
     ) -> str:
-        query = """
-        SELECT
-            machine_name,
-            machine_type,
-            supported_material_type,
-            max_tolerance_mm,
-            geometry_capability,
-            surface_finish_capability,
-            special_features,
-            cost_per_hour
-        FROM dbt_industry_dev.source.machines
-        WHERE array_contains(
-                transform(split(supported_material_type, ','), x -> trim(x)),
-                :material_type
-            )
-        AND max_tolerance_mm <= :required_tolerance
-        AND status = 'available'
-        LIMIT 5
-        """
-        with sql.connect(
-            server_hostname=self.host,
-            http_path=self.http_path,
-            access_token=self.token,
-        ) as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    query,
-                    {
-                        "material_type": material_type,
-                        "required_tolerance": float(required_tolerance),
-                    },
-                )
-                rows = cursor.fetchall()
-                columns = [col[0] for col in cursor.description]
-                machines = [dict(zip(columns, row)) for row in rows]
 
-        # In-memory optional filters
-        # geometry_capability and special_features are ARRAY<STRING> in Databricks.
-        # The connector returns them as Python lists. Handle both list and string gracefully.
-
-        def as_list(value) -> list:
-            if isinstance(value, list):
-                return value
-            if isinstance(value, str):
-                return [v.strip() for v in value.split(",")]
-            return []
-
-        # Geometry: "complex" is a user-facing complexity LEVEL, not a DB geometry TYPE.
-        # DB stores capability types: "prismatic", "freeform", "deep_bore", etc.
-        # A machine qualifies if it supports ANY of the mapped capability types.
-        GEOMETRY_COMPLEXITY_MAP = {
+        GEOMETRY_MAP = {
             "simple":   ["prismatic"],
             "moderate": ["prismatic", "freeform"],
             "complex":  ["freeform", "deep_bore", "complex"],
         }
 
-        if required_geometry:
-            complexity_key = required_geometry.lower()
-            if complexity_key in GEOMETRY_COMPLEXITY_MAP:
-                required_caps = GEOMETRY_COMPLEXITY_MAP[complexity_key]
-                machines = [
-                    m for m in machines
-                    if any(cap in as_list(m.get("geometry_capability")) for cap in required_caps)
-                ]
-            else:
-                # Exact match fallback for non-standard geometry values
-                machines = [
-                    m for m in machines
-                    if required_geometry in as_list(m.get("geometry_capability"))
-                ]
+        FINISH_RANK = {"standard": 1, "high": 2, "very high": 3, "mirror": 4}
 
-        # Surface finish hierarchy: mirror >= very high >= high >= standard
-        # A machine rated "mirror" also satisfies "high" or "standard" requests.
-        SURFACE_FINISH_RANK = {
-            "standard":  1,
-            "high":      2,
-            "very high": 3,
-            "mirror":    4,
-        }
+        # ── 1. Fetch from DB (material + tolerance only) ──────────────────────
+        query = """
+            SELECT machine_name, machine_type, supported_material_type,
+                max_tolerance_mm, geometry_capability,
+                surface_finish_capability, special_features, cost_per_hour
+            FROM dbt_industry_dev.source.machines
+            WHERE array_contains(
+                    transform(split(supported_material_type, ','), x -> trim(x)),
+                    :material_type
+                )
+            AND max_tolerance_mm <= :required_tolerance
+            AND status = 'available'
+            ORDER BY cost_per_hour ASC
+            LIMIT 5
+        """
+        with sql.connect(
+            server_hostname=self.host,
+            http_path=self.http_path,
+            access_token=self.token,
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, {"material_type": material_type,
+                                    "required_tolerance": float(required_tolerance)})
+                cols = [c[0] for c in cur.description]
+                machines = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+        # ── 2. Helper: normalise DB array columns (list or comma-string → list) ─
+        def to_list(val) -> list:
+            if isinstance(val, list): return val
+            if isinstance(val, str):  return [v.strip() for v in val.split(",")]
+            return []
+
+        # ── 3. Optional in-memory filters ─────────────────────────────────────
+        if required_geometry:
+            caps = GEOMETRY_MAP.get(required_geometry.lower(), [required_geometry])
+            machines = [m for m in machines
+                        if any(c in to_list(m["geometry_capability"]) for c in caps)]
 
         if required_surface_finish:
-            required_rank = SURFACE_FINISH_RANK.get(required_surface_finish.lower(), 1)
-            machines = [
-                m for m in machines
-                if SURFACE_FINISH_RANK.get(
-                    (m.get("surface_finish_capability") or "").lower(), 0
-                ) >= required_rank
-            ]
+            min_rank = FINISH_RANK.get(required_surface_finish.lower(), 1)
+            machines = [m for m in machines
+                        if FINISH_RANK.get(m["surface_finish_capability"].lower(), 0) >= min_rank]
 
         if required_features:
-            for feature in required_features:
-                machines = [
-                    m for m in machines
-                    if feature in as_list(m.get("special_features"))
-                ]
+            machines = [m for m in machines
+                        if all(f in to_list(m["special_features"]) for f in required_features)]
 
+        # ── 4. Return ──────────────────────────────────────────────────────────
         if not machines:
-            return (
-                f"No machines found for material_type='{material_type}', "
-                f"tolerance={required_tolerance}mm, geometry='{required_geometry}', "
-                f"surface_finish='{required_surface_finish}', features={required_features}. "
-                f"Consider relaxing optional filters and retrying."
-            )
+            return (f"No machines found for material='{material_type}', "
+                    f"tolerance={required_tolerance}mm, geometry='{required_geometry}', "
+                    f"finish='{required_surface_finish}', features={required_features}.")
 
         return str(self._sanitize(machines))
 
