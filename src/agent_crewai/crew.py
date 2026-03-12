@@ -176,7 +176,7 @@ class MachineQueryTool(BaseTool):
             AND max_tolerance_mm <= :required_tolerance
             AND status = 'available'
             ORDER BY cost_per_hour ASC
-            LIMIT 5
+            LIMIT 20
         """
         with sql.connect(
             server_hostname=self.host,
