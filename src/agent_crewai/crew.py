@@ -294,11 +294,18 @@ class CrewAiDev:
         #     api_key=os.getenv("DEEPSEEK_API_KEY")
         # )
         
+        # self.llm = LLM(
+        #     model="llama-3.1-8b-instant",
+        #     temperature=0.3,
+        #     api_key=os.getenv("GROQ_API_KEY"),
+        #     base_url="https://api.groq.com/openai/v1"
+        # )
+
         self.llm = LLM(
-            model="llama-3.1-8b-instant",
+            model="mistralai/Mistral-7B-Instruct-v0.2",  
             temperature=0.3,
-            api_key=os.getenv("GROQ_API_KEY"),
-            base_url="https://api.groq.com/openai/v1"
+            api_key=os.getenv("HF_API_KEY"),            
+            base_url="https://api-inference.huggingface.co/models"
         )
         
 
