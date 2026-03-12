@@ -192,18 +192,30 @@ class MachineQueryTool(BaseTool):
             print(f"DEBUG geometry_capability sample: {repr(machines[0].get('geometry_capability'))}")
         # ─────────────────────────────────────────────────────────────────────
 
-        # ── 2. Normalise array columns (handles JSON string from Databricks) ──
+        # ── 2. Normalise array columns (handles numpy array from Databricks) ──
         def to_list(val) -> list:
             if isinstance(val, list):
                 return val
             if isinstance(val, str):
                 val = val.strip()
-                if val.startswith("["):           # e.g. '["5-axis","deep_bore"]'
+                if val.startswith("["):
                     try:
-                        return json.loads(val)    # → ['5-axis', 'deep_bore']
+                        return json.loads(val)
                     except (json.JSONDecodeError, ValueError):
                         pass
-                return [v.strip() for v in val.split(",")]  # plain CSV fallback
+                return [v.strip() for v in val.split(",")]
+            # Databricks connector returns numpy arrays for ARRAY<STRING> columns
+            try:
+                import numpy as np
+                if isinstance(val, np.ndarray):
+                    return val.tolist()
+            except ImportError:
+                pass
+            # Fallback for any other iterable (pyarrow, etc.)
+            try:
+                return list(val)
+            except (TypeError, ValueError):
+                pass
             return []
 
         # ── 3. In-memory filters ──────────────────────────────────────────────
@@ -252,7 +264,23 @@ class CrewAiDev:
         self.http_path = http_path or os.getenv("DATABRICKS_HTTP_PATH")
         self.token = token or os.getenv("DATABRICKS_TOKEN")
 
-        # ── FIX: only ONE LLM defined (Groq — generous free tier) ────────────
+        
+        # self.llm = LLM(model="gemini/gemini-2.5-flash", temperature=0.3)
+  
+        # self.llm = LLM(
+        #     model="deepseek/deepseek-chat",
+        #     temperature=0.3,
+        #     api_key=os.getenv("DEEPSEEK_API_KEY")
+        # )
+        
+        # self.llm = LLM(
+        #     model="llama-3.1-8b-instant",
+        #     temperature=0.3,
+        #     api_key=os.getenv("GROQ_API_KEY"),
+        #     base_url="https://api.groq.com/openai/v1"
+        # )
+        
+        
         self.llm = LLM(
             model="groq/llama-3.3-70b-versatile",
             temperature=0.3,
