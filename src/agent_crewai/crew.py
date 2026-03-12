@@ -286,7 +286,7 @@ class CrewAiDev:
         self.http_path = http_path or os.getenv("DATABRICKS_HTTP_PATH")
         self.token = token or os.getenv("DATABRICKS_TOKEN")
 
-        # self.llm = LLM(model="gemini/gemini-2.5-flash", temperature=0.3)
+        self.llm = LLM(model="gemini/gemini-2.5-flash", temperature=0.3)
   
         # self.llm = LLM(
         #     model="deepseek/deepseek-chat",
@@ -301,13 +301,7 @@ class CrewAiDev:
         #     base_url="https://api.groq.com/openai/v1"
         # )
 
-        self.llm = LLM(
-            model="mistralai/Mistral-7B-Instruct-v0.2",  
-            temperature=0.3,
-            api_key=os.getenv("HF_API_KEY"),            
-            base_url="https://api-inference.huggingface.co/models"
-        )
-        
+
 
         self._material_tool = MaterialQueryTool(
             host=self.host, http_path=self.http_path, token=self.token
